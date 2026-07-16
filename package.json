@@ -1,0 +1,8 @@
+{
+  "name": "ai-series-studio-prototype",
+  "private": true,
+  "scripts": {
+    "prototype": "python3 -m http.server 4173 -d prototype",
+    "validate:m0.5": "node scripts/validate-m0-5.mjs"
+  }
+}
