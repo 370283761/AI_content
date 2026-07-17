@@ -1,5 +1,6 @@
 # Dependencies
 node_modules/
+.pnpm-store/
 .pnp
 .pnp.js
 
@@ -46,7 +47,6 @@ Thumbs.db
 
 # Prisma
 prisma/.env
-migrations/
 
 # MinIO / S3
 minio-data/

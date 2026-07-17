@@ -1,0 +1,347 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum ProjectStatus {
+  active
+  archived
+}
+
+enum SourceKind {
+  idea
+  pasted
+  novel_generated
+}
+
+enum ContentStatus {
+  draft
+  pending
+  confirmed
+  locked
+}
+
+enum CharacterRole {
+  protagonist
+  antagonist
+  supporting
+}
+
+enum ProductionStatus {
+  todo
+  submitted
+  generated
+  adopted
+  needs_work
+  discarded
+}
+
+model Workspace {
+  id        String    @id @default(uuid()) @db.Uuid
+  slug      String    @unique @db.VarChar(80)
+  name      String    @db.VarChar(120)
+  users     User[]
+  projects  Project[]
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+
+  @@map("workspaces")
+}
+
+model User {
+  id          String    @id @default(uuid()) @db.Uuid
+  workspaceId String    @map("workspace_id") @db.Uuid
+  email       String    @unique @db.VarChar(200)
+  name        String    @db.VarChar(120)
+  workspace   Workspace @relation(fields: [workspaceId], references: [id])
+  projects    Project[]
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  @@index([workspaceId])
+  @@map("users")
+}
+
+model Project {
+  id            String           @id @default(uuid()) @db.Uuid
+  workspaceId   String           @map("workspace_id") @db.Uuid
+  ownerId       String           @map("owner_id") @db.Uuid
+  name          String           @db.VarChar(200)
+  genre         String           @default("动漫短剧") @db.VarChar(80)
+  sourceKind    SourceKind       @map("source_kind")
+  params        Json
+  status        ProjectStatus    @default(active)
+  quotaUsed     BigInt           @default(0) @map("quota_used")
+  quotaLimit    BigInt           @default(1073741824) @map("quota_limit")
+  lastStage     String           @default("setup") @map("last_stage") @db.VarChar(50)
+  workspace     Workspace        @relation(fields: [workspaceId], references: [id])
+  owner         User             @relation(fields: [ownerId], references: [id])
+  sources       SourceDocument[]
+  storyBible    StoryBible?
+  characters    Character[]
+  relationships Relationship[]
+  locations     Location[]
+  props         Prop[]
+  styleProfile  StyleProfile?
+  seasons       Season[]
+  versions      ContentVersion[]
+  createdAt     DateTime         @default(now()) @map("created_at")
+  updatedAt     DateTime         @updatedAt @map("updated_at")
+  deletedAt     DateTime?        @map("deleted_at")
+
+  @@index([workspaceId, status])
+  @@index([ownerId, status])
+  @@map("projects")
+}
+
+model SourceDocument {
+  id            String        @id @default(uuid()) @db.Uuid
+  projectId     String        @map("project_id") @db.Uuid
+  kind          SourceKind
+  title         String?       @db.VarChar(200)
+  content       String        @db.Text
+  contentStatus ContentStatus @default(draft) @map("content_status")
+  lockedFields  Json          @default("[]") @map("locked_fields")
+  project       Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdAt     DateTime      @default(now()) @map("created_at")
+  updatedAt     DateTime      @updatedAt @map("updated_at")
+
+  @@index([projectId])
+  @@map("source_documents")
+}
+
+model StoryBible {
+  id             String        @id @default(uuid()) @db.Uuid
+  projectId      String        @unique @map("project_id") @db.Uuid
+  logline        String        @default("") @db.Text
+  theme          String        @default("") @db.Text
+  tone           String        @default("") @db.Text
+  worldbuilding  String        @default("") @db.Text
+  coreConflict   String        @default("") @map("core_conflict") @db.Text
+  mainGoal       String        @default("") @map("main_goal") @db.Text
+  immutableFacts Json          @default("[]") @map("immutable_facts")
+  fieldSources   Json          @default("{}") @map("field_sources")
+  contentStatus  ContentStatus @default(draft) @map("content_status")
+  lockedFields   Json          @default("[]") @map("locked_fields")
+  project        Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdAt      DateTime      @default(now()) @map("created_at")
+  updatedAt      DateTime      @updatedAt @map("updated_at")
+
+  @@map("story_bibles")
+}
+
+model Character {
+  id                String         @id @default(uuid()) @db.Uuid
+  projectId         String         @map("project_id") @db.Uuid
+  name              String         @db.VarChar(120)
+  age               String?        @db.VarChar(40)
+  identity          String         @default("") @db.Text
+  role              CharacterRole  @default(supporting)
+  personality       String         @default("") @db.Text
+  goal              String         @default("") @db.Text
+  appearance        Json           @default("{}")
+  costumes          Json           @default("[]")
+  iconicItems       Json           @default("[]") @map("iconic_items")
+  forbiddenChanges  Json           @default("[]") @map("forbidden_changes")
+  visualPrompt      String         @default("") @map("visual_prompt") @db.Text
+  fieldSources      Json           @default("{}") @map("field_sources")
+  contentStatus     ContentStatus  @default(draft) @map("content_status")
+  lockedFields      Json           @default("[]") @map("locked_fields")
+  project           Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  outgoingRelations Relationship[] @relation("relationship_from")
+  incomingRelations Relationship[] @relation("relationship_to")
+  createdAt         DateTime       @default(now()) @map("created_at")
+  updatedAt         DateTime       @updatedAt @map("updated_at")
+  deletedAt         DateTime?      @map("deleted_at")
+
+  @@unique([projectId, name])
+  @@index([projectId])
+  @@map("characters")
+}
+
+model Relationship {
+  id         String    @id @default(uuid()) @db.Uuid
+  projectId  String    @map("project_id") @db.Uuid
+  fromId     String    @map("from_id") @db.Uuid
+  toId       String    @map("to_id") @db.Uuid
+  type       String    @db.VarChar(100)
+  strength   Int       @default(50)
+  trajectory String    @default("") @db.Text
+  project    Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  from       Character @relation("relationship_from", fields: [fromId], references: [id], onDelete: Cascade)
+  to         Character @relation("relationship_to", fields: [toId], references: [id], onDelete: Cascade)
+  createdAt  DateTime  @default(now()) @map("created_at")
+  updatedAt  DateTime  @updatedAt @map("updated_at")
+
+  @@unique([fromId, toId, type])
+  @@index([projectId])
+  @@map("relationships")
+}
+
+model Location {
+  id            String        @id @default(uuid()) @db.Uuid
+  projectId     String        @map("project_id") @db.Uuid
+  name          String        @db.VarChar(160)
+  description   String        @default("") @db.Text
+  visualPrompt  String        @default("") @map("visual_prompt") @db.Text
+  contentStatus ContentStatus @default(draft) @map("content_status")
+  lockedFields  Json          @default("[]") @map("locked_fields")
+  project       Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  scenes        Scene[]
+  createdAt     DateTime      @default(now()) @map("created_at")
+  updatedAt     DateTime      @updatedAt @map("updated_at")
+  deletedAt     DateTime?     @map("deleted_at")
+
+  @@unique([projectId, name])
+  @@map("locations")
+}
+
+model Prop {
+  id            String        @id @default(uuid()) @db.Uuid
+  projectId     String        @map("project_id") @db.Uuid
+  name          String        @db.VarChar(160)
+  description   String        @default("") @db.Text
+  visualPrompt  String        @default("") @map("visual_prompt") @db.Text
+  contentStatus ContentStatus @default(draft) @map("content_status")
+  lockedFields  Json          @default("[]") @map("locked_fields")
+  project       Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdAt     DateTime      @default(now()) @map("created_at")
+  updatedAt     DateTime      @updatedAt @map("updated_at")
+  deletedAt     DateTime?     @map("deleted_at")
+
+  @@unique([projectId, name])
+  @@map("props")
+}
+
+model StyleProfile {
+  id             String        @id @default(uuid()) @db.Uuid
+  projectId      String        @unique @map("project_id") @db.Uuid
+  templateName   String        @default("二次元赛璐璐") @map("template_name") @db.VarChar(120)
+  texture        String        @default("") @db.Text
+  colorLighting  String        @default("") @map("color_lighting") @db.Text
+  composition    String        @default("") @db.Text
+  aspectRatio    String        @default("9:16") @map("aspect_ratio") @db.VarChar(20)
+  negativePrompt String        @default("") @map("negative_prompt") @db.Text
+  contentStatus  ContentStatus @default(draft) @map("content_status")
+  lockedFields   Json          @default("[]") @map("locked_fields")
+  project        Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdAt      DateTime      @default(now()) @map("created_at")
+  updatedAt      DateTime      @updatedAt @map("updated_at")
+
+  @@map("style_profiles")
+}
+
+model Season {
+  id              String        @id @default(uuid()) @db.Uuid
+  projectId       String        @map("project_id") @db.Uuid
+  order           Int           @default(1)
+  title           String        @default("第一季") @db.VarChar(200)
+  arc             String        @default("") @db.Text
+  characterGrowth Json          @default("[]") @map("character_growth")
+  foreshadowings  Json          @default("[]")
+  contentStatus   ContentStatus @default(draft) @map("content_status")
+  lockedFields    Json          @default("[]") @map("locked_fields")
+  project         Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  episodes        Episode[]
+  createdAt       DateTime      @default(now()) @map("created_at")
+  updatedAt       DateTime      @updatedAt @map("updated_at")
+  deletedAt       DateTime?     @map("deleted_at")
+
+  @@unique([projectId, order])
+  @@map("seasons")
+}
+
+model Episode {
+  id             String        @id @default(uuid()) @db.Uuid
+  seasonId       String        @map("season_id") @db.Uuid
+  order          Int
+  title          String        @db.VarChar(200)
+  hook           String        @default("") @db.Text
+  goal           String        @default("") @db.Text
+  conflict       String        @default("") @db.Text
+  mainPlot       String        @default("") @map("main_plot") @db.Text
+  cliffhanger    String        @default("") @db.Text
+  targetDuration Int           @default(60) @map("target_duration")
+  contentStatus  ContentStatus @default(draft) @map("content_status")
+  lockedFields   Json          @default("[]") @map("locked_fields")
+  season         Season        @relation(fields: [seasonId], references: [id], onDelete: Cascade)
+  scenes         Scene[]
+  createdAt      DateTime      @default(now()) @map("created_at")
+  updatedAt      DateTime      @updatedAt @map("updated_at")
+  deletedAt      DateTime?     @map("deleted_at")
+
+  @@unique([seasonId, order])
+  @@map("episodes")
+}
+
+model Scene {
+  id                String        @id @default(uuid()) @db.Uuid
+  episodeId         String        @map("episode_id") @db.Uuid
+  locationId        String?       @map("location_id") @db.Uuid
+  order             Int
+  title             String        @db.VarChar(200)
+  timeOfDay         String        @default("") @map("time_of_day") @db.VarChar(80)
+  durationEst       Int           @default(0) @map("duration_est")
+  characterIds      Json          @default("[]") @map("character_ids")
+  visualDescription String        @default("") @map("visual_description") @db.Text
+  actions           Json          @default("[]")
+  dialogues         Json          @default("[]")
+  narration         String        @default("") @db.Text
+  emotionalGoal     String        @default("") @map("emotional_goal") @db.Text
+  contentStatus     ContentStatus @default(draft) @map("content_status")
+  lockedFields      Json          @default("[]") @map("locked_fields")
+  episode           Episode       @relation(fields: [episodeId], references: [id], onDelete: Cascade)
+  location          Location?     @relation(fields: [locationId], references: [id], onDelete: SetNull)
+  shots             Shot[]
+  createdAt         DateTime      @default(now()) @map("created_at")
+  updatedAt         DateTime      @updatedAt @map("updated_at")
+  deletedAt         DateTime?     @map("deleted_at")
+
+  @@unique([episodeId, order])
+  @@map("scenes")
+}
+
+model Shot {
+  id                       String           @id @default(uuid()) @db.Uuid
+  sceneId                  String           @map("scene_id") @db.Uuid
+  order                    Int
+  durationEst              Int              @default(4) @map("duration_est")
+  fields                   Json
+  productionStatus         ProductionStatus @default(todo) @map("production_status")
+  contentStatus            ContentStatus    @default(draft) @map("content_status")
+  lockedFields             Json             @default("[]") @map("locked_fields")
+  currentPromptId          String?          @map("current_prompt_id") @db.Uuid
+  submittedPromptVersionId String?          @map("submitted_prompt_version_id") @db.Uuid
+  scene                    Scene            @relation(fields: [sceneId], references: [id], onDelete: Cascade)
+  createdAt                DateTime         @default(now()) @map("created_at")
+  updatedAt                DateTime         @updatedAt @map("updated_at")
+  deletedAt                DateTime?        @map("deleted_at")
+
+  @@unique([sceneId, order])
+  @@map("shots")
+}
+
+model ContentVersion {
+  id         String           @id @default(uuid()) @db.Uuid
+  projectId  String           @map("project_id") @db.Uuid
+  entityType String           @map("entity_type") @db.VarChar(30)
+  entityId   String           @map("entity_id") @db.Uuid
+  versionNo  Int              @map("version_no")
+  parentId   String?          @map("parent_id") @db.Uuid
+  snapshot   Json
+  reason     String           @default("") @db.Text
+  source     String           @db.VarChar(20)
+  aiTaskId   String?          @map("ai_task_id") @db.Uuid
+  project    Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  parent     ContentVersion?  @relation("content_version_parent", fields: [parentId], references: [id])
+  children   ContentVersion[] @relation("content_version_parent")
+  createdAt  DateTime         @default(now()) @map("created_at")
+
+  @@unique([entityType, entityId, versionNo])
+  @@index([projectId])
+  @@map("content_versions")
+}

@@ -2,8 +2,10 @@
 
 > 帮助创作者把故事创意或平台生成的小说章节转化为可在即梦（Seedance 2.0）逐镜头生产的视频剧集方案，并管理剧本、分镜、提示词、一致性和制作进度的 AI 创作工作台。
 
-**当前状态**：需求与架构设计阶段（M0）  
-**版本**：V0.2 需求基线  
+**当前状态**：M1 工程骨架与人工创作闭环
+
+**版本**：V0.1 应用实现
+
 **更新时间**：2026-07-16
 
 ---
@@ -143,14 +145,15 @@ pnpm install
 
 # 2. 配置环境变量
 cp .env.example .env
-# 编辑 .env，填入 Claude 和 GPT-5.6 的 API Key
+# M1 不需要 AI API Key
 
 # 3. 启动依赖服务（Postgres、Redis、MinIO）
 docker compose up -d
 
 # 4. 数据库迁移
-pnpm prisma generate
-pnpm prisma migrate dev
+pnpm prisma:generate
+pnpm prisma:migrate
+pnpm prisma:seed
 
 # 5. 启动开发服务器
 pnpm dev
@@ -201,12 +204,15 @@ pnpm dev
 - [x] M0.5 架构决策与原型基线收敛
 - [x] 本地任务跟踪与 Git 基线约定
 
-**M1 项目骨架**（下一步）
-- [ ] Prisma schema 初始化
-- [ ] Docker Compose 配置
-- [ ] 项目 CRUD + 自动保存
-- [ ] 圣经模块结构化表单
-- [ ] 基础导航与示例项目
+**M1 项目骨架与人工闭环**（当前）
+- [x] Next.js App Router、Prisma 与代码质量基线
+- [x] Docker Compose：Postgres、Redis、MinIO
+- [x] 项目 CRUD、原始输入保留、自动保存与继续制作
+- [x] 故事/角色/视觉圣经、关系、地点/道具与字段锁定
+- [x] 人工分集、场景、镜头编辑、排序、时长估算
+- [x] 正式生产工作台本地数据模式
+
+M1 尚不调用 AI，不生成真实即梦提示词。AI 网关、故事分析、自动分镜与提示词生成进入 M2。
 
 M1 实施顺序与发布门禁见 [开发计划](./docs/DEVELOPMENT_PLAN.md)，已确认架构决策见 [ADR 索引](./docs/adr/README.md)。
 
